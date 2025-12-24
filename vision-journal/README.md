@@ -2,6 +2,11 @@
 
 Cloud-only MVP for a vision + habits + journal app built with Expo (React Native), expo-router, and Supabase.
 
+## Requirements
+
+- Node.js 20+ and npm
+- Expo Go app on your phone (or an iOS/Android simulator)
+
 ## Setup
 
 1) Install dependencies
@@ -22,11 +27,33 @@ Set values in `.env`:
 - `EXPO_PUBLIC_SUPABASE_URL`
 - `EXPO_PUBLIC_SUPABASE_ANON_KEY`
 
+You can find these in the Supabase dashboard under Project Settings → API.
+
 3) Run the app
 
 ```bash
 npm run start
 ```
+
+If you just updated `.env`, restart Metro with:
+
+```bash
+npm run start -- --clear
+```
+
+Scan the QR code with Expo Go.
+
+## Supabase (optional)
+
+If you want to apply migrations to your Supabase project:
+
+```bash
+supabase login
+supabase link --project-ref <your-project-ref>
+supabase db push
+```
+
+Note: the latest migration drops and recreates tables; run it only on a fresh project.
 
 ## Auth
 

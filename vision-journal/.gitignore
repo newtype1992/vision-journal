@@ -12,3 +12,7 @@ yarn-error.log*
 pnpm-debug.log*
 .DS_Store
 Thumbs.db
+.vscode
+.idea
+*.swp
+*.tmp
