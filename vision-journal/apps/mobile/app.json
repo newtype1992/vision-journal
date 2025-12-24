@@ -1,0 +1,10 @@
+{
+  "expo": {
+    "name": "Vision Journal",
+    "slug": "vision-journal",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "plugins": ["expo-router"]
+  }
+}
