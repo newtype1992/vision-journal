@@ -11,6 +11,8 @@ export async function fetchActiveHabits() {
   return { data: (data as Habit[] | null) ?? null, error };
 }
 
+export const listActiveHabits = fetchActiveHabits;
+
 export async function fetchHabitLogsForDate(date: string, habitIds: string[]) {
   if (habitIds.length === 0) {
     return { data: [] as HabitLog[], error: null };

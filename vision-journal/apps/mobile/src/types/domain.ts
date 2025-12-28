@@ -29,6 +29,25 @@ export type JournalEntry = BaseEntity & {
   content: string | null;
 };
 
+export type VisionType = "SHORT_TERM" | "LONG_TERM";
+
+export type VisionItem = BaseEntity & {
+  user_id?: string;
+  title: string;
+  type: VisionType;
+  description: string | null;
+  is_archived: boolean;
+};
+
+export type VisionHabitMap = {
+  id: string;
+  user_id?: string;
+  vision_item_id: string;
+  habit_id: string;
+  weight: number | null;
+  created_at: ISODate;
+};
+
 export type Profile = {
   id: string;
   timezone: string | null;
