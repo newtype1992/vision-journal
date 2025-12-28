@@ -170,3 +170,59 @@ export function dateFromDateKey(dateKey: string, timeZone: string) {
   adjusted.setDate(adjusted.getDate() + direction);
   return adjusted;
 }
+
+type MonthKeyParts = {
+  year: number;
+  month: number;
+};
+
+export function parseMonthKey(monthKey: string): MonthKeyParts | null {
+  const match = monthKey.match(/^(\d{4})-(\d{2})$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  if (!year || month < 1 || month > 12) return null;
+  return { year, month };
+}
+
+export function getMonthKey(date: Date, timeZone: string) {
+  return getDateKey(date, timeZone).slice(0, 7);
+}
+
+export function formatMonthLabel(monthKey: string, timeZone: string) {
+  const parts = parseMonthKey(monthKey);
+  if (!parts) return "Invalid month";
+  const date = new Date(parts.year, parts.month - 1, 1);
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    month: "long",
+    year: "numeric"
+  }).format(date);
+}
+
+export function compareMonthKeys(left: string, right: string) {
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
+}
+
+export function addMonthsToMonthKey(monthKey: string, delta: number) {
+  const parts = parseMonthKey(monthKey);
+  if (!parts) return monthKey;
+  const totalMonths = parts.year * 12 + (parts.month - 1) + delta;
+  const nextYear = Math.floor(totalMonths / 12);
+  const nextMonth = (totalMonths % 12) + 1;
+  const monthValue = String(nextMonth).padStart(2, "0");
+  return `${nextYear}-${monthValue}`;
+}
+
+export function getMonthRangeFromKey(monthKey: string) {
+  const parts = parseMonthKey(monthKey);
+  if (!parts) {
+    return { startKey: "1970-01-01", endKey: "1970-01-01" };
+  }
+  const daysInMonth = new Date(Date.UTC(parts.year, parts.month, 0)).getUTCDate();
+  const monthValue = String(parts.month).padStart(2, "0");
+  const startKey = `${parts.year}-${monthValue}-01`;
+  const endKey = `${parts.year}-${monthValue}-${String(daysInMonth).padStart(2, "0")}`;
+  return { startKey, endKey };
+}

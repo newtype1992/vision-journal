@@ -11,16 +11,15 @@ import {
 import { Badge } from "../../../src/components/Badge";
 import { Banner } from "../../../src/components/Banner";
 import { Screen } from "../../../src/components/Screen";
-import { listActiveHabits } from "../../../src/features/habits/api";
+import { listActiveHabits, listHabitsByIds } from "../../../src/features/habits/api";
 import {
   addVisionHabitMaps,
   archiveVisionItem,
   getVisionItem,
   listVisionHabitMaps,
-  removeVisionHabitMap,
-  VisionHabitMapWithHabit
+  removeVisionHabitMap
 } from "../../../src/features/vision/api";
-import { Habit, VisionItem } from "../../../src/types/domain";
+import { Habit, VisionHabitMap, VisionItem } from "../../../src/types/domain";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -35,7 +34,8 @@ export default function VisionDetailScreen() {
   const [visionLoading, setVisionLoading] = useState(true);
   const [visionError, setVisionError] = useState(false);
 
-  const [maps, setMaps] = useState<VisionHabitMapWithHabit[]>([]);
+  const [maps, setMaps] = useState<VisionHabitMap[]>([]);
+  const [linkedHabits, setLinkedHabits] = useState<Record<string, Habit>>({});
   const [mapsLoading, setMapsLoading] = useState(true);
   const [mapsError, setMapsError] = useState(false);
 
@@ -59,17 +59,15 @@ export default function VisionDetailScreen() {
     [maps]
   );
 
-  const linkedHabits = useMemo(
-    () =>
-      maps
-        .filter((map) => map.habits && !map.habits.is_archived)
-        .map((map) => ({
-          mapId: map.id,
-          habitId: map.habit_id,
-          habit: map.habits as Habit
-        })),
-    [maps]
-  );
+  const linkedHabitList = useMemo(() => {
+    return maps
+      .map((map) => {
+        const habit = linkedHabits[map.habit_id];
+        if (!habit) return null;
+        return { habitId: map.habit_id, habit };
+      })
+      .filter((item): item is { habitId: string; habit: Habit } => !!item);
+  }, [linkedHabits, maps]);
 
   const loadVisionItem = useCallback(async () => {
     if (!visionId) return;
@@ -97,7 +95,23 @@ export default function VisionDetailScreen() {
       setMapsLoading(false);
       return;
     }
-    setMaps(data ?? []);
+    const nextMaps = data ?? [];
+    setMaps(nextMaps);
+    const habitIds = nextMaps.map((map) => map.habit_id);
+    const { data: habitsData, error: habitsError } = await listHabitsByIds(
+      habitIds
+    );
+    if (habitsError) {
+      setHabitsError(true);
+      setNetworkIssue(true);
+      setMapsLoading(false);
+      return;
+    }
+    const habitMap: Record<string, Habit> = {};
+    (habitsData ?? []).forEach((habit) => {
+      habitMap[habit.id] = habit;
+    });
+    setLinkedHabits(habitMap);
     setMapsError(false);
     setNetworkIssue(false);
     setMapsLoading(false);
@@ -151,18 +165,27 @@ export default function VisionDetailScreen() {
   const handleRemoveHabit = useCallback(
     async (habitId: string) => {
       if (!visionId) return;
+      const previousMaps = maps;
+      const previousLinkedHabits = linkedHabits;
+      setMaps((prev) => prev.filter((map) => map.habit_id !== habitId));
+      setLinkedHabits((prev) => {
+        const next = { ...prev };
+        delete next[habitId];
+        return next;
+      });
       setRemoveStatuses((prev) => ({ ...prev, [habitId]: "saving" }));
       const { error } = await removeVisionHabitMap(visionId, habitId);
       if (error) {
+        setMaps(previousMaps);
+        setLinkedHabits(previousLinkedHabits);
         setRemoveStatuses((prev) => ({ ...prev, [habitId]: "error" }));
         setNetworkIssue(true);
         return;
       }
       setRemoveStatuses((prev) => ({ ...prev, [habitId]: "saved" }));
       setNetworkIssue(false);
-      loadMaps();
     },
-    [loadMaps, visionId]
+    [linkedHabits, maps, visionId]
   );
 
   const handleRetryRemove = useCallback(
@@ -196,18 +219,60 @@ export default function VisionDetailScreen() {
     }
 
     setLinkStatus("saving");
-    const { error } = await addVisionHabitMaps(visionId, selectedIds);
+    const { data: existingMaps, error: existingError } =
+      await listVisionHabitMaps(visionId);
+    if (existingError) {
+      setLinkStatus("error");
+      setNetworkIssue(true);
+      return;
+    }
+
+    const existingIds = new Set(
+      (existingMaps ?? []).map((map) => map.habit_id)
+    );
+    const missingIds = selectedIds.filter((habitId) => !existingIds.has(habitId));
+
+    if (missingIds.length === 0) {
+      setLinkStatus("saved");
+      setSelectedHabits({});
+      setNetworkIssue(false);
+      setLinkModalOpen(false);
+      return;
+    }
+
+    const { data: insertedMaps, error } = await addVisionHabitMaps(
+      visionId,
+      missingIds
+    );
     if (error) {
       setLinkStatus("error");
       setNetworkIssue(true);
       return;
     }
+
+    const { data: newHabits, error: habitsError } = await listHabitsByIds(
+      missingIds
+    );
+    if (habitsError) {
+      setLinkStatus("error");
+      setNetworkIssue(true);
+      return;
+    }
+
+    setMaps((prev) => [...prev, ...((insertedMaps ?? []) as VisionHabitMap[])]);
+    setLinkedHabits((prev) => {
+      const next = { ...prev };
+      (newHabits ?? []).forEach((habit) => {
+        next[habit.id] = habit;
+      });
+      return next;
+    });
+
     setLinkStatus("saved");
     setSelectedHabits({});
     setNetworkIssue(false);
     setLinkModalOpen(false);
-    loadMaps();
-  }, [linkedHabitIds, loadMaps, selectedHabits, visionId]);
+  }, [linkedHabitIds, selectedHabits, visionId]);
 
   const handleRetryLink = useCallback(() => {
     handleLinkHabits();
@@ -278,6 +343,7 @@ export default function VisionDetailScreen() {
             onPress={() => {
               setLinkStatus("idle");
               setHabitsError(false);
+              setSelectedHabits({});
               setLinkModalOpen(true);
             }}
             style={styles.linkButton}
@@ -291,10 +357,10 @@ export default function VisionDetailScreen() {
             <View style={styles.loading}>
               <ActivityIndicator size="small" color="#666" />
             </View>
-          ) : linkedHabits.length === 0 ? (
+          ) : linkedHabitList.length === 0 ? (
             <Text style={styles.emptyText}>No linked habits yet.</Text>
           ) : (
-            linkedHabits.map(({ habitId, habit }) => (
+            linkedHabitList.map(({ habitId, habit }) => (
               <View key={habitId} style={styles.habitRow}>
                 <View style={styles.habitInfo}>
                   <Text style={styles.habitName}>{habit.name}</Text>
@@ -331,9 +397,20 @@ export default function VisionDetailScreen() {
                 <ActivityIndicator size="small" color="#666" />
               </View>
             ) : availableHabits.length === 0 ? (
-              <Text style={styles.emptyText}>
-                No active habits available to link.
-              </Text>
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>
+                  No active habits available to link.
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    setLinkModalOpen(false);
+                    router.push("/(tabs)/habits/new");
+                  }}
+                  style={styles.primaryButton}
+                >
+                  <Text style={styles.primaryButtonText}>Add Habit</Text>
+                </Pressable>
+              </View>
             ) : (
               <View style={styles.modalList}>
                 {availableHabits.map((habit) => {
@@ -498,6 +575,20 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: "#4d4d4d"
+  },
+  emptyState: {
+    gap: 12
+  },
+  primaryButton: {
+    alignSelf: "flex-start",
+    backgroundColor: "#111",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10
+  },
+  primaryButtonText: {
+    color: "#fff",
+    fontWeight: "600"
   },
   errorText: {
     color: "#b00020"

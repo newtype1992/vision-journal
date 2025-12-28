@@ -1,4 +1,5 @@
 import { router } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -206,34 +207,32 @@ export default function TodayScreen() {
     saveJournal(journalContent);
   }, [journalContent, lastSavedJournalContent, saveJournal]);
 
-  useEffect(() => {
+  const loadHabits = useCallback(async () => {
     if (!user) return;
-    let isMounted = true;
+    setHabitsLoading(true);
+    const { data, error } = await fetchActiveHabits();
 
-    const loadHabits = async () => {
-      setHabitsLoading(true);
-      const { data, error } = await fetchActiveHabits();
-
-      if (!isMounted) return;
-
-      if (error) {
-        setNetworkIssue(true);
-        setHabits([]);
-        setHabitsLoading(false);
-        return;
-      }
-
-      setHabits(data ?? []);
+    if (error) {
+      setNetworkIssue(true);
+      setHabits([]);
       setHabitsLoading(false);
-      setNetworkIssue(false);
-    };
+      return;
+    }
 
-    loadHabits();
-
-    return () => {
-      isMounted = false;
-    };
+    setHabits(data ?? []);
+    setHabitsLoading(false);
+    setNetworkIssue(false);
   }, [user]);
+
+  useEffect(() => {
+    loadHabits();
+  }, [loadHabits]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadHabits();
+    }, [loadHabits])
+  );
 
   useEffect(() => {
     Object.values(habitDebounceRef.current).forEach((timeout) => {

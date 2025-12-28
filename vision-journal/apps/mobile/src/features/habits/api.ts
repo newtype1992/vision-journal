@@ -1,17 +1,52 @@
 import { supabase } from "../../lib/supabaseClient";
-import { Habit, HabitLog } from "../../types/domain";
+import { Habit, HabitLog, HabitType } from "../../types/domain";
 
-export async function fetchActiveHabits() {
+export async function listActiveHabits() {
   const { data, error } = await supabase
     .from("habits")
-    .select("*")
+    .select("id, name, type, unit, is_archived, created_at, updated_at")
     .eq("is_archived", false)
     .order("created_at", { ascending: true });
 
   return { data: (data as Habit[] | null) ?? null, error };
 }
 
-export const listActiveHabits = fetchActiveHabits;
+export async function fetchActiveHabits() {
+  return listActiveHabits();
+}
+
+export async function listHabitsByIds(habitIds: string[]) {
+  if (habitIds.length === 0) {
+    return { data: [] as Habit[], error: null };
+  }
+
+  const { data, error } = await supabase
+    .from("habits")
+    .select("id, name, type, unit, is_archived, created_at, updated_at")
+    .in("id", habitIds)
+    .eq("is_archived", false);
+
+  return { data: (data as Habit[] | null) ?? null, error };
+}
+
+export async function createHabit(input: {
+  name: string;
+  type: HabitType;
+  unit?: string | null;
+}) {
+  const { data, error } = await supabase
+    .from("habits")
+    .insert({
+      name: input.name,
+      type: input.type,
+      unit: input.unit ?? null,
+      is_archived: false
+    })
+    .select("*")
+    .maybeSingle();
+
+  return { data: data as Habit | null, error };
+}
 
 export async function fetchHabitLogsForDate(date: string, habitIds: string[]) {
   if (habitIds.length === 0) {
