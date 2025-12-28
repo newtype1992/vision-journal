@@ -23,6 +23,24 @@ export function getDeviceTimeZone() {
   return Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC";
 }
 
+type DateKeyParts = {
+  year: number;
+  month: number;
+  day: number;
+};
+
+function parseDateKeyParts(dateKey: string): DateKeyParts | null {
+  const match = dateKey.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!year || month < 1 || month > 12 || day < 1 || day > 31) {
+    return null;
+  }
+  return { year, month, day };
+}
+
 function getDateParts(date: Date, timeZone: string): DateParts {
   const parts = dateKeyFormatter
     .formatToParts(date)
@@ -64,6 +82,10 @@ export function getDateKey(date: Date, timeZone: string) {
   return `${year}-${month}-${day}`;
 }
 
+export function getTodayDateKey(timeZone: string) {
+  return getDateKey(new Date(), timeZone);
+}
+
 export function formatMonthDay(date: Date, timeZone: string) {
   if (timeZone === getDeviceTimeZone()) {
     return monthDayFormatter.format(date);
@@ -97,17 +119,45 @@ export function isFutureDate(date: Date, timeZone: string) {
 }
 
 export function parseDateKey(dateKey: string) {
-  const match = dateKey.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return null;
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  if (!year || month < 1 || month > 12 || day < 1 || day > 31) {
-    return null;
-  }
-  const candidate = new Date(year, month - 1, day, 12, 0, 0);
+  const parts = parseDateKeyParts(dateKey);
+  if (!parts) return null;
+  const candidate = new Date(parts.year, parts.month - 1, parts.day, 12, 0, 0);
   if (Number.isNaN(candidate.getTime())) return null;
   return candidate;
+}
+
+export function compareDateKeys(left: string, right: string) {
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
+}
+
+function dateKeyToDayIndex(dateKey: string) {
+  const parts = parseDateKeyParts(dateKey);
+  if (!parts) return null;
+  const utcMs = Date.UTC(parts.year, parts.month - 1, parts.day);
+  return Math.floor(utcMs / 86400000);
+}
+
+function dayIndexToDateKey(dayIndex: number) {
+  const date = new Date(dayIndex * 86400000);
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function addDaysToDateKey(dateKey: string, days: number) {
+  const startIndex = dateKeyToDayIndex(dateKey);
+  if (startIndex === null) return dateKey;
+  return dayIndexToDateKey(startIndex + days);
+}
+
+export function diffDateKeysInclusive(startKey: string, endKey: string) {
+  const startIndex = dateKeyToDayIndex(startKey);
+  const endIndex = dateKeyToDayIndex(endKey);
+  if (startIndex === null || endIndex === null) return 0;
+  const diff = endIndex - startIndex + 1;
+  return diff < 0 ? 0 : diff;
 }
 
 export function dateFromDateKey(dateKey: string, timeZone: string) {
