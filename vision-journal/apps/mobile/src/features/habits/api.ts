@@ -1,0 +1,51 @@
+import { supabase } from "../../lib/supabaseClient";
+import { Habit, HabitLog } from "../../types/domain";
+
+export async function fetchActiveHabits() {
+  const { data, error } = await supabase
+    .from("habits")
+    .select("*")
+    .eq("is_archived", false)
+    .order("created_at", { ascending: true });
+
+  return { data: (data as Habit[] | null) ?? null, error };
+}
+
+export async function fetchHabitLogsForDate(date: string, habitIds: string[]) {
+  if (habitIds.length === 0) {
+    return { data: [] as HabitLog[], error: null };
+  }
+
+  const { data, error } = await supabase
+    .from("habit_logs")
+    .select("*")
+    .eq("date", date)
+    .in("habit_id", habitIds);
+
+  return { data: (data as HabitLog[] | null) ?? null, error };
+}
+
+export async function upsertHabitLog({
+  habitId,
+  date,
+  value
+}: {
+  habitId: string;
+  date: string;
+  value: number;
+}) {
+  const { data, error } = await supabase
+    .from("habit_logs")
+    .upsert(
+      {
+        habit_id: habitId,
+        date,
+        value
+      },
+      { onConflict: "habit_id,date" }
+    )
+    .select("*")
+    .maybeSingle();
+
+  return { data: data as HabitLog | null, error };
+}

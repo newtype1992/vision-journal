@@ -15,6 +15,10 @@ export default function TabsLayout() {
       <Tabs.Screen name="progress" options={{ title: "Progress" }} />
       <Tabs.Screen name="monthly" options={{ title: "Monthly" }} />
       <Tabs.Screen name="settings" options={{ title: "Settings" }} />
+      <Tabs.Screen
+        name="habits/new"
+        options={{ title: "Add Habit", href: null }}
+      />
     </Tabs>
   );
 }

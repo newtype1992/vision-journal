@@ -1,53 +1,36 @@
-﻿type ISODate = string;
+export type ISODate = string;
 
-type BaseEntity = {
+export type HabitType = "BINARY" | "NUMERIC";
+
+export type BaseEntity = {
   id: string;
-  userId: string;
-  createdAt: ISODate;
-  updatedAt?: ISODate;
+  created_at: ISODate;
+  updated_at: ISODate | null;
 };
 
 export type Habit = BaseEntity & {
+  user_id?: string;
   name: string;
-  description?: string | null;
-  frequency: "daily" | "weekly" | "monthly" | "custom";
-  startDate: ISODate;
-  isArchived: boolean;
+  type: HabitType;
+  unit: string | null;
+  is_archived: boolean;
 };
 
 export type HabitLog = BaseEntity & {
-  habitId: string;
-  logDate: ISODate;
-  completed: boolean;
-  notes?: string | null;
-};
-
-export type VisionItem = BaseEntity & {
-  title: string;
-  description?: string | null;
-  targetDate?: ISODate | null;
-  isArchived: boolean;
-};
-
-export type VisionHabitMap = BaseEntity & {
-  visionItemId: string;
-  habitId: string;
+  user_id?: string;
+  habit_id: string;
+  date: ISODate;
+  value: number | null;
 };
 
 export type JournalEntry = BaseEntity & {
-  entryDate: ISODate;
-  mood?: string | null;
-  content?: string | null;
-  isArchived: boolean;
+  user_id?: string;
+  date: ISODate;
+  content: string | null;
 };
 
-export type JournalEntryLink = BaseEntity & {
-  journalEntryId: string;
-  visionItemId?: string | null;
-  habitId?: string | null;
-};
-
-export type MonthlySummary = BaseEntity & {
-  monthDate: ISODate;
-  summary?: string | null;
+export type Profile = {
+  id: string;
+  timezone: string | null;
+  week_start_day: number | null;
 };
